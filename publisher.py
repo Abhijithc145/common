@@ -1,11 +1,19 @@
 import pika, json
-import logging
 from activity_service.config import config as cfg
+import logging
+from BaseWorke.middlewares.new_relic_middleware import get_logger
 
-def publish_event(message, queue_name):
-    
-    print("in event")
-    
+logger = get_logger()
+
+
+ACTIVITY_CREATED_ROUTING_KEY = "Activity.Activity.Created"
+AUDIT_EXCHANGE = "AUDIT"
+
+
+def publish_event(
+    message, routing_key=ACTIVITY_CREATED_ROUTING_KEY, exchange=AUDIT_EXCHANGE
+):
+    EXCHANGE = AUDIT_EXCHANGE
     credentials = pika.PlainCredentials(
         cfg.get("rabbit_mq", "USER_NAME"), cfg.get("rabbit_mq", "PASSWORD")
     )
@@ -17,11 +25,27 @@ def publish_event(message, queue_name):
         heartbeat=int(cfg.get("rabbit_mq", "HEART_BEAT")),
         connection_attempts=int(cfg.get("rabbit_mq", "CONNECTION_ATTEMPTS")),
     )
-    conn = pika.BlockingConnection(parameters)
-    channel = conn.channel()
-    channel.queue_declare(queue=queue_name, durable=True)
-    channel.basic_publish(exchange="", routing_key=queue_name, body=json.dumps(message))
-    print(message,"26", "26")
-    conn.close()
+    connection = pika.BlockingConnection(parameters)
+    channel = connection.channel()
+    channel.exchange_declare(exchange=EXCHANGE, exchange_type="topic")
 
+    channel.basic_publish(
+        exchange=EXCHANGE,
+        routing_key=routing_key,
+        body=json.dumps(message),
+        properties=pika.BasicProperties(
+            delivery_mode=2,
+        ),
+    )
 
+    logger = get_logger()
+    logger.info(
+        "EVENT SUCCESFULLY PUBLISHED TO "
+        + EXCHANGE
+        + "\n ROUTING KEY"
+        + routing_key
+        + "\n CURRENT PAYLOAD \n"
+        + str(message)
+    )
+
+    connection.close()

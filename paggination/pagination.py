@@ -1,6 +1,7 @@
 from django.core.paginator import EmptyPage, PageNotAnInteger
 
-def paggination(page,paginator):
+
+def paggination(page, paginator):
     try:
         result = paginator.page(page)
         return result
